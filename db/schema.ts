@@ -1,0 +1,75 @@
+import { DAYS_OF_WEEK } from '@/constants';
+import { relations } from 'drizzle-orm';
+import {
+  boolean,
+  index,
+  integer,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  varchar,
+} from 'drizzle-orm/pg-core';
+
+const createdAt = timestamp('createdAt').defaultNow().notNull();
+
+const updatedAt = timestamp('updatedAt')
+  .defaultNow()
+  .notNull()
+  .$onUpdate(() => new Date());
+
+export const EventsTable = pgTable(
+  'events',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    name: varchar({ length: 255 }).notNull(),
+    desctipton: text().notNull(),
+    duration: integer().notNull(),
+    clerkUserId: varchar({ length: 255 }).notNull(),
+    isActive: boolean().default(true),
+    createdAt,
+    updatedAt,
+  },
+  table => [
+    index('clerkUserId_index').on(table.clerkUserId),
+    index('createdAt_index').on(table.createdAt),
+    index('isActive_index').on(table.isActive),
+  ]
+);
+
+export const schedulesTable = pgTable('schedules', {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  timezone: varchar({ length: 255 }).notNull(),
+  clerkUserId: varchar({ length: 255 }).notNull().unique(),
+  createdAt,
+  updatedAt,
+});
+
+export const scheduleDayOfWeekEnum = pgEnum('day', DAYS_OF_WEEK);
+
+export const scheduleAvailabilitiesTable = pgTable(
+  'scheduleAvailabilities',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    scheduleId: integer()
+      .notNull()
+      .references(() => schedulesTable.id, {
+        onDelete: 'cascade',
+      }),
+    startTime: timestamp().notNull(),
+    endTime: timestamp().notNull(),
+    dayOfWeek: scheduleDayOfWeekEnum().notNull(),
+  },
+  table => [
+    index('scheduleId_index').on(table.scheduleId),
+    index('dayOfWeek_index').on(table.dayOfWeek),
+  ]
+);
+
+// A schedule has many availabilities
+export const scheduleAvailabilitiesRelations = relations(
+  schedulesTable,
+  ({ many }) => ({
+    availabilities: many(scheduleAvailabilitiesTable),
+  })
+);
