@@ -10,6 +10,7 @@ import {
   timestamp,
   varchar,
 } from 'drizzle-orm/pg-core';
+import { createSelectSchema } from 'drizzle-zod';
 
 const createdAt = timestamp('createdAt').defaultNow().notNull();
 
@@ -18,12 +19,12 @@ const updatedAt = timestamp('updatedAt')
   .notNull()
   .$onUpdate(() => new Date());
 
-export const EventsTable = pgTable(
+export const eventsTable = pgTable(
   'events',
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     name: varchar({ length: 255 }).notNull(),
-    desctipton: text().notNull(),
+    description: text().notNull(),
     duration: integer().notNull(),
     clerkUserId: varchar({ length: 255 }).notNull(),
     isActive: boolean().default(true),
@@ -73,3 +74,5 @@ export const scheduleAvailabilitiesRelations = relations(
     availabilities: many(scheduleAvailabilitiesTable),
   })
 );
+
+// i'm not building bidirectional relations for now
