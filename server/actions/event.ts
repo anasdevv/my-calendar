@@ -6,7 +6,7 @@ import { auth } from '@clerk/nextjs/server';
 import { and, eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { ActionResult } from '@/lib/types/action-result';
-import { EventRow } from '@/lib/types/events';
+import { EventRow } from '@/lib/types/event';
 
 export const createEvent = async (
   unsafeEventData: EventFormData
@@ -25,7 +25,7 @@ export const createEvent = async (
       return {
         success: false,
         error: 'Validation failed',
-        fieldErrors: error.flatten().fieldErrors,
+        fieldErrors: error?.flatten().fieldErrors,
       };
     }
 
@@ -161,6 +161,17 @@ export const getAllEvents = async (userId: string): Promise<EventRow[]> => {
     },
     orderBy: (events, { desc }) => {
       return desc(events.createdAt);
+    },
+  });
+};
+
+export const getEventById = async (
+  eventId: number,
+  userId: string
+): Promise<EventRow | undefined> => {
+  return db.query.eventsTable.findFirst({
+    where: (events, { and, eq }) => {
+      return and(eq(events.id, eventId), eq(events.clerkUserId, userId));
     },
   });
 };

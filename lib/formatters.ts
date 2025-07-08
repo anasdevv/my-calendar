@@ -49,3 +49,12 @@ const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
 export function formatDateTime(date: Date) {
   return dateTimeFormatter.format(date);
 }
+
+export function extractTimeFromISO(isoString: string): string {
+  try {
+    const date = new Date(isoString);
+    return date.toTimeString().slice(0, 5); // Extract HH:MM from "HH:MM:SS GMT..."
+  } catch {
+    return isoString;
+  }
+}

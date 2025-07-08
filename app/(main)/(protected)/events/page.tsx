@@ -1,6 +1,6 @@
 import EventCard from '@/components/cards/EventCard';
 import { Button } from '@/components/ui/button';
-import { getAllEvents } from '@/server/actions/events';
+import { getAllEvents } from '@/server/actions/event';
 import { auth } from '@clerk/nextjs/server';
 import { CalendarPlus, CalendarRange } from 'lucide-react';
 import Link from 'next/link';

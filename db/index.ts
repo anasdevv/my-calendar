@@ -1,22 +1,19 @@
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
+import { Pool } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-serverless';
 import * as schema from './schema';
 import invariant from 'tiny-invariant';
 
 const dbUrl = process.env.DATABASE_URL;
 invariant(dbUrl, 'DATABASE_URL is not defined');
 
-// Create a singleton connection using Neon's HTTP driver
-// Neon uses HTTP requests instead of persistent TCP connections,
-// so there's no connection pooling needed and no TCP handshake overhead
-// offcourse there is cold start
-const sql = neon(dbUrl);
+// Create a connection pool using Neon's serverless pool
+// This supports transactions and works with drizzle-orm/neon-serverless
+const pool = new Pool({ connectionString: dbUrl });
 
-// Create the drizzle instance with the Neon client
+// Create the drizzle instance with the Neon pool
 // This instance will be reused across all database operations
-const db = drizzle({ client: sql, schema });
+const db = drizzle(pool, { schema });
 
-// Export the database instance and schema
 export { db };
 
 export type Database = typeof db;

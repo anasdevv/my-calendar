@@ -67,12 +67,17 @@ export const scheduleAvailabilitiesTable = pgTable(
   ]
 );
 
-// A schedule has many availabilities
+// Relations
+export const schedulesRelations = relations(schedulesTable, ({ many }) => ({
+  availabilities: many(scheduleAvailabilitiesTable),
+}));
+
 export const scheduleAvailabilitiesRelations = relations(
-  schedulesTable,
-  ({ many }) => ({
-    availabilities: many(scheduleAvailabilitiesTable),
+  scheduleAvailabilitiesTable,
+  ({ one }) => ({
+    schedule: one(schedulesTable, {
+      fields: [scheduleAvailabilitiesTable.scheduleId],
+      references: [schedulesTable.id],
+    }),
   })
 );
-
-// i'm not building bidirectional relations for now

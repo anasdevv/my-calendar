@@ -31,7 +31,7 @@ import { Button } from '../ui/button';
 import { Alert, AlertDescription } from '../ui/alert';
 import { AlertDialogTitle } from '@radix-ui/react-alert-dialog';
 import Link from 'next/link';
-import { createEvent, deleteEvent, updateEvent } from '@/server/actions/events';
+import { createEvent, deleteEvent, updateEvent } from '@/server/actions/event';
 import { useServerActionHandler } from '@/lib/hooks/useServerActionHandler';
 
 export default function EventForm({ event }: { event?: EventFormData }) {
