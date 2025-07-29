@@ -2,13 +2,20 @@
 import { db } from '@/db';
 import { eventsTable } from '@/db/schema';
 import { EventFormData, eventFormSchema } from '@/validations/events';
-import { auth } from '@clerk/nextjs/server';
-import { and, eq } from 'drizzle-orm';
+import { auth, clerkClient } from '@clerk/nextjs/server';
+import { and, eq, not } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { ActionResult } from '@/lib/types/action-result';
 import { EventRow } from '@/lib/types/event';
 import { GoogleCalendarService } from '../google/google-calendar';
-import { eachMinuteOfInterval, endOfDay, startOfDay } from 'date-fns';
+import {
+  addMinutes,
+  eachMinuteOfInterval,
+  endOfDay,
+  startOfDay,
+} from 'date-fns';
+import { calendar_v3 } from 'googleapis';
+import { ActionError, ActionResponse } from './type';
 
 export const createEvent = async (
   unsafeEventData: EventFormData
@@ -223,5 +230,72 @@ export const getGoogleCalendarEventsTime = async (
 
     console.warn('Failed to fetch Google events, returning empty array');
     return [];
+  }
+};
+
+export const createGoogleCalendarEvent = async ({
+  userId,
+  guests,
+  notes,
+  startTime,
+  duration,
+  eventName,
+  ...res
+}: Partial<calendar_v3.Schema$Event> & {
+  userId: string;
+  notes?: string;
+  startTime: Date;
+  duration?: number; // in minutes
+  eventName?: string;
+  guests:
+    | {
+        displayName: string;
+        email: string;
+      }[]
+    | undefined;
+}): Promise<ActionResult<calendar_v3.Schema$Event>> => {
+  try {
+    const _clerkClient = await clerkClient();
+    const user = await _clerkClient.users.getUser(userId);
+    const userPrimaryEmail = user.primaryEmailAddress?.emailAddress;
+    if (!userPrimaryEmail) {
+      console.error('User does not have a primary email address');
+      return {
+        success: false,
+        error: 'User does not have a primary email address',
+      };
+    }
+    const calendar = GoogleCalendarService.getInstance();
+    const response = await calendar.createEvent({
+      userId,
+      requestBody: {
+        ...res,
+        attendees: [
+          ...(guests ?? []),
+          {
+            email: userPrimaryEmail,
+            displayName: user.fullName,
+            responseStatus: 'accepted',
+          },
+        ],
+        description: notes
+          ? 'Additional details: ' + notes
+          : 'No additional details',
+        start: {
+          dateTime: startTime.toISOString(),
+        },
+        end: {
+          dateTime: addMinutes(startTime, duration ?? 30).toISOString(),
+        },
+        summary: `${user.fullName} - ${eventName ?? ''} Meeting`,
+      },
+    });
+    return { success: true, data: response };
+  } catch (error: any) {
+    console.error('Error creating Google Calendar event:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+    };
   }
 };

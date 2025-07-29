@@ -73,7 +73,7 @@ export default async function BookingPage({
       </CardHeader>
       <CardContent>
         <MeetingForm
-          validTimes={validTimes}
+          validTimeSlots={validTimes}
           eventId={event.id}
           clerkUserId={clerkUserId}
         />

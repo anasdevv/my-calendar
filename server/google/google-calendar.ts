@@ -59,4 +59,19 @@ export class GoogleCalendarService {
     });
     return response?.data?.items ?? [];
   }
+  public async createEvent({
+    userId,
+    calendarId = 'primary',
+    requestBody,
+  }: calendar_v3.Params$Resource$Events$Insert & {
+    userId: string;
+  }): Promise<calendar_v3.Schema$Event> {
+    const calendar = await this.getCalendarClient(userId);
+    const response = await calendar.events.insert({
+      calendarId,
+      requestBody,
+      sendUpdates: 'all',
+    });
+    return response.data;
+  }
 }
