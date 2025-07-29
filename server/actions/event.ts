@@ -7,6 +7,8 @@ import { and, eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { ActionResult } from '@/lib/types/action-result';
 import { EventRow } from '@/lib/types/event';
+import { GoogleCalendarService } from '../google/google-calendar';
+import { eachMinuteOfInterval, endOfDay, startOfDay } from 'date-fns';
 
 export const createEvent = async (
   unsafeEventData: EventFormData
@@ -174,4 +176,52 @@ export const getEventById = async (
       return and(eq(events.id, eventId), eq(events.clerkUserId, userId));
     },
   });
+};
+
+export const getGoogleCalendarEventsTime = async (
+  userId: string,
+  { end, start }: { start: Date; end: Date }
+) => {
+  try {
+    const calendar = GoogleCalendarService.getInstance();
+    const events = await calendar.listEvents({
+      userId,
+      timeMax: start.toISOString(),
+      timeMin: end.toISOString(),
+    });
+    if (!events || events.length === 0) {
+      console.warn('No Google Calendar events found for user:', userId);
+      return [];
+    }
+    const formattedEventTime = events
+      .map(event => {
+        if (event.start?.date && event.end?.date) {
+          return {
+            start: startOfDay(event.start.date),
+            end: endOfDay(event.end.date),
+          };
+        }
+        if (event.start?.dateTime && event.end?.dateTime) {
+          return {
+            start: new Date(event.start.dateTime),
+            end: new Date(event.end.dateTime),
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+    return formattedEventTime;
+  } catch (error: any) {
+    console.error('Error fetching Google events:', error);
+
+    if (error.message?.includes('has not connected their Google account')) {
+      console.warn(
+        'User has not connected Google account, returning empty events'
+      );
+      return [];
+    }
+
+    console.warn('Failed to fetch Google events, returning empty array');
+    return [];
+  }
 };

@@ -8,6 +8,18 @@ export const DAYS_OF_WEEK = [
   'sunday',
 ] as const;
 
+export const DAYS_OF_WEEK_MAP: {
+  [key: number]: (typeof DAYS_OF_WEEK)[number];
+} = {
+  0: 'sunday',
+  1: 'monday',
+  2: 'tuesday',
+  3: 'wednesday',
+  4: 'thursday',
+  5: 'friday',
+  6: 'saturday',
+};
+
 export const NavLinks = [
   {
     imageUrl: '/events.svg',
