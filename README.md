@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# My Calendar
+
+A modern, full-stack calendar and event management application built with Next.js, TypeScript, and Drizzle ORM. Easily manage events, bookings, and schedules with a beautiful UI and Google Calendar integration.
+
+## Features
+
+- **Authentication**: Secure login and registration flows.
+- **Event Management**: Create, edit, and view events (protected routes).
+- **Booking System**: Public booking pages for events, with confirmation and feedback.
+- **Scheduling**: Manage your schedule and meetings.
+- **Google Calendar Integration**: Sync events with Google Calendar.
+- **Reusable UI Components**: Custom buttons, dialogs, cards, and forms.
+- **Database Migrations**: Versioned schema changes using Drizzle ORM.
+
+## Tech Stack
+
+- **Next.js** (App Router)
+- **TypeScript**
+- **Drizzle ORM**
+- **PostCSS**
+- **React**
+
+## Project Structure
+
+```
+app/            # Main application logic and routing
+components/     # Reusable UI components
+constants/      # Centralized constants
+lib/            # Utility functions and hooks
+server/         # Server-side actions and integrations
+validations/    # Input validation schemas
+public/         # Static assets (SVGs, images)
+db/             # Database schema and migrations
+```
 
 ## Getting Started
 
-First, run the development server:
+1. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+2. **Run database migrations**:
+   ```bash
+   npm run migrate
+   ```
+3. **Start the development server**:
+   ```bash
+   npm run dev
+   ```
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Configuration
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Edit `drizzle.config.ts` for database settings.
+- Update environment variables as needed for Google integration and authentication.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Contributing
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
 
-## Learn More
+## License
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT
