@@ -1,8 +1,11 @@
-import { db } from '@/db';
+'use server';
+import { getDbInstance } from '@/db';
 import { MeetingActionData, meetingActionSchema } from '@/validations/meeting';
 import { getAvailableTimeSlots } from './schedule';
 import { fromZonedTime } from 'date-fns-tz';
 import { createGoogleCalendarEvent } from './event';
+
+const db = getDbInstance();
 
 export const createMeeting = async (
   unsafeMeetingActionData: MeetingActionData
@@ -17,8 +20,10 @@ export const createMeeting = async (
       fieldErrors: error?.flatten().fieldErrors,
     };
   }
+  const db = getDbInstance();
+
   const { eventId, clerkUserId, ...meetingData } = data;
-  const event = await db.query.eventsTable.findFirst({
+  const event = await db!.query.eventsTable.findFirst({
     where: ({ clerkUserId, isActive, id }, { and, eq }) =>
       and(eq(clerkUserId, clerkUserId), eq(isActive, true), eq(id, eventId)),
   });
@@ -40,6 +45,7 @@ export const createMeeting = async (
       error: 'No available time slots found for the selected time',
     };
   }
+  console.log('validTimeSlots', validTimeSlots);
   const createEventResult = await createGoogleCalendarEvent({
     userId: clerkUserId,
     guests: [
@@ -53,7 +59,7 @@ export const createMeeting = async (
     duration: event.duration,
     eventName: event.name,
   });
-
+  console.log('createEventResult', createEventResult);
   if (!createEventResult?.success) {
     return {
       success: false,
@@ -61,4 +67,14 @@ export const createMeeting = async (
         createEventResult?.error || 'Failed to create Google Calendar event',
     };
   }
+  return {
+    success: true,
+    data: {
+      ...meetingData,
+      eventId,
+      clerkUserId,
+      startTime: startTimeInTimezone,
+      googleEventId: createEventResult.data.id,
+    },
+  };
 };

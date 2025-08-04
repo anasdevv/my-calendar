@@ -1,26 +1,21 @@
 'use server';
-import { db } from '@/db';
+import { getDbInstance } from '@/db';
 import { eventsTable } from '@/db/schema';
-import { EventFormData, eventFormSchema } from '@/validations/events';
-import { auth, clerkClient } from '@clerk/nextjs/server';
-import { and, eq, not } from 'drizzle-orm';
-import { revalidatePath } from 'next/cache';
 import { ActionResult } from '@/lib/types/action-result';
 import { EventRow } from '@/lib/types/event';
-import { GoogleCalendarService } from '../google/google-calendar';
-import {
-  addMinutes,
-  eachMinuteOfInterval,
-  endOfDay,
-  startOfDay,
-} from 'date-fns';
+import { EventFormData, eventFormSchema } from '@/validations/events';
+import { auth, clerkClient } from '@clerk/nextjs/server';
+import { addMinutes, endOfDay, startOfDay } from 'date-fns';
+import { and, eq } from 'drizzle-orm';
 import { calendar_v3 } from 'googleapis';
-import { ActionError, ActionResponse } from './type';
-
+import { revalidatePath } from 'next/cache';
+import { GoogleCalendarService } from '../google/google-calendar';
 export const createEvent = async (
   unsafeEventData: EventFormData
 ): Promise<ActionResult> => {
   try {
+    const db = getDbInstance();
+
     const user = await auth();
     if (!user?.userId) {
       return {
@@ -86,6 +81,7 @@ export const updateEvent = async (
         fieldErrors: error.flatten().fieldErrors,
       };
     }
+    const db = getDbInstance();
 
     const { rowCount } = await db
       .update(eventsTable)
@@ -134,6 +130,7 @@ export const deleteEvent = async (id: number): Promise<ActionResult> => {
         error: 'User must be authenticated to delete an event',
       };
     }
+    const db = getDbInstance();
 
     const { rowCount } = await db
       .delete(eventsTable)
@@ -164,6 +161,8 @@ export const deleteEvent = async (id: number): Promise<ActionResult> => {
 };
 
 export const getAllEvents = async (userId: string): Promise<EventRow[]> => {
+  const db = getDbInstance();
+
   return db.query.eventsTable.findMany({
     where: (events, { eq }) => {
       return eq(events.clerkUserId, userId);
@@ -178,11 +177,18 @@ export const getEventById = async (
   eventId: number,
   userId: string
 ): Promise<EventRow | undefined> => {
-  return db.query.eventsTable.findFirst({
-    where: (events, { and, eq }) => {
-      return and(eq(events.id, eventId), eq(events.clerkUserId, userId));
-    },
-  });
+  console.log('Fetching event by ID:', eventId, 'for user:', userId);
+  const db = getDbInstance();
+  try {
+    return db.query.eventsTable.findFirst({
+      where: (events, { and, eq }) => {
+        return and(eq(events.id, eventId), eq(events.clerkUserId, userId));
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching event by ID:', error);
+    return undefined;
+  }
 };
 
 export const getGoogleCalendarEventsTime = async (
@@ -190,12 +196,14 @@ export const getGoogleCalendarEventsTime = async (
   { end, start }: { start: Date; end: Date }
 ) => {
   try {
+    console.log('start', start, 'end', end);
     const calendar = GoogleCalendarService.getInstance();
     const events = await calendar.listEvents({
       userId,
-      timeMax: start.toISOString(),
-      timeMin: end.toISOString(),
+      timeMin: start.toISOString(),
+      timeMax: end.toISOString(),
     });
+    console.log('Fetched Google Calendar events:', events);
     if (!events || events.length === 0) {
       console.warn('No Google Calendar events found for user:', userId);
       return [];

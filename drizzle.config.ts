@@ -1,8 +1,8 @@
-import invariant from 'tiny-invariant';
+'use server';
 import { defineConfig } from 'drizzle-kit';
+import { getDatabaseUrl } from './lib/server-config';
 
-const databaseUrl = process.env.DATABASE_URL;
-invariant(databaseUrl, 'DATABASE_URL is not defined');
+const databaseUrl = getDatabaseUrl();
 
 export default defineConfig({
   out: './db/migrations',

@@ -1,12 +1,20 @@
 import PublicProfile from '@/components/PublicProfile';
-import { GoogleCalendarService } from '@/server/google/google-calendar';
-import { auth, currentUser } from '@clerk/nextjs/server';
+import { getAllEvents } from '@/server/actions/event';
+import { currentUser } from '@clerk/nextjs/server';
 
-export default async function BookingPage(params: Promise<{ id: string }>) {
+export default async function BookingPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   const user = await currentUser();
-
+  const events = await getAllEvents(id);
   return (
-    <PublicProfile fullName={user?.fullName ?? ''} userId={id} events={[]} />
+    <PublicProfile
+      fullName={user?.fullName ?? ''}
+      userId={id}
+      events={events}
+    />
   );
 }

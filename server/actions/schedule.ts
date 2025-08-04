@@ -1,5 +1,5 @@
 'use server';
-import { db } from '@/db';
+import { getDbInstance } from '@/db';
 import { scheduleAvailabilitiesTable, schedulesTable } from '@/db/schema';
 import { EventRow } from '@/lib/types/event';
 import { ScheduleWithAvailabilities } from '@/lib/types/schedule';
@@ -17,6 +17,7 @@ import {
   setMinutes,
 } from 'date-fns';
 import { DAYS_OF_WEEK_MAP, DAYS_OF_WEEK } from '@/constants';
+const db = getDbInstance();
 
 export const getAvailableTimeSlots = async (
   allTimesSlot: Date[],
@@ -70,13 +71,20 @@ export const getAvailableTimeSlots = async (
       if (!slot?.start || !slot?.end) return true;
       return !areIntervalsOverlapping(slot, eventInterval);
     });
+
     if (!isAvailableForEvent) return false;
     // event fits atleast one availability slot
 
     return dayAvailabilites.some(
       (availability: { start: Date; end: Date }) =>
-        isWithinInterval(availability.start, eventInterval) &&
-        isWithinInterval(availability.end, eventInterval)
+        isWithinInterval(eventInterval.start, {
+          start: availability.start,
+          end: availability.end,
+        }) &&
+        isWithinInterval(eventInterval.end, {
+          start: availability.start,
+          end: availability.end,
+        })
     );
   });
 };
@@ -188,14 +196,14 @@ const getDayAvailability = (
   }
   // convert availabilities to the same timezone as the schedule
   return availabilities.map(availabilitiy => {
-    const [startHour, startMinute] = (
-      availabilitiy.startTime as unknown as string
-    )
-      .split(':')
-      .map(Number);
-    const [endHour, endMinute] = (availabilitiy.endTime as unknown as string)
-      .split(':')
-      .map(Number);
+    const startTimeStr = new Date(availabilitiy?.startTime as unknown as string)
+      .toISOString()
+      .substring(11, 16);
+    const endTimeStr = new Date(availabilitiy?.endTime as unknown as string)
+      .toISOString()
+      .substring(11, 16);
+    const [startHour, startMinute] = startTimeStr?.split(':')?.map(Number);
+    const [endHour, endMinute] = endTimeStr?.split(':')?.map(Number);
     const start = fromZonedTime(
       setMinutes(setHours(date, startHour), startMinute),
       timezone

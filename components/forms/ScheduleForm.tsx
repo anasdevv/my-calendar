@@ -13,6 +13,8 @@ import {
   FormLabel,
   FormMessage,
 } from '../ui/form';
+import { Virtuoso } from 'react-virtuoso';
+
 import {
   Select,
   SelectContent,
@@ -100,26 +102,46 @@ export function ScheduleForm({
             {form.formState.errors.root.message}
           </div>
         )}
-
         <FormField
           control={form.control}
           name="timezone"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Timezone</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value || ''}>
                 <FormControl>
-                  <SelectTrigger>
-                    <SelectValue />
+                  <SelectTrigger className="w-full">
+                    <SelectValue asChild>
+                      <span>
+                        {field.value
+                          ? `${field.value} (${formatTimezoneOffset(field.value)})`
+                          : 'Select a timezone'}
+                      </span>
+                    </SelectValue>
                   </SelectTrigger>
                 </FormControl>
-                <SelectContent>
-                  {Intl.supportedValuesOf('timeZone').map(timezone => (
-                    <SelectItem key={timezone} value={timezone}>
-                      {timezone}
-                      {` (${formatTimezoneOffset(timezone)})`}
-                    </SelectItem>
-                  ))}
+                <SelectContent
+                  className="w-full"
+                  style={{ minWidth: 'var(--radix-select-trigger-width)' }}
+                >
+                  <Virtuoso
+                    style={{
+                      height: '300px',
+                      width: '100%',
+                      overflowX: 'hidden',
+                    }}
+                    totalCount={Intl.supportedValuesOf('timeZone').length}
+                    itemContent={index => {
+                      const option = Intl.supportedValuesOf('timeZone')[index];
+                      return (
+                        <div style={{ width: '100%' }}>
+                          <SelectItem key={option} value={option}>
+                            {option} ({formatTimezoneOffset(option)})
+                          </SelectItem>
+                        </div>
+                      );
+                    }}
+                  />
                 </SelectContent>
               </Select>
               <FormMessage />

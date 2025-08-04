@@ -27,7 +27,9 @@ export const Navbar = async () => {
       <section className="sticky top-0 flex justify-between">
         <div className="flex flex-1 max-sm:gap-0 sm:gap-6">
           {user ? (
-            NavLinks.map(navLink => <NavItem {...navLink} />)
+            NavLinks.map(navLink => (
+              <NavItem key={navLink.label} {...navLink} />
+            ))
           ) : (
             <>
               <SignInButton>

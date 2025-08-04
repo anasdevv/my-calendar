@@ -8,14 +8,5 @@ export default async function Home() {
   if (!user) {
     return <LandingPage />;
   }
-  const start = roundToNearestMinutes(new Date(), {
-    nearestTo: 15,
-    roundingMethod: 'ceil',
-  });
-  const endDate = endOfDay(addMonths(start, 1));
-  const validTimeWindows = getValidTimeWindows(start, endDate);
-
-  // const res = await getGoogleEvents(user.id);
-  // console.log('Google Calendar Client:', res);
   return redirect('/events');
 }

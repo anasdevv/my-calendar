@@ -1,6 +1,6 @@
 import { clerkClient, OauthAccessToken } from '@clerk/nextjs/server';
 import { google } from 'googleapis';
-import { serverConfig } from '../../lib/server-config';
+import { getGoogleConfig } from '../../lib/server-config';
 
 export interface GoogleTokens {
   accessToken: string;
@@ -13,7 +13,7 @@ export class GoogleAccountManager {
   private clerkClient: typeof clerkClient;
   private readonly provider = 'google';
   constructor() {
-    const { clientId, clientSecret, redirectUri } = serverConfig.google;
+    const { clientId, clientSecret, redirectUri } = getGoogleConfig();
 
     this.oauth2Client = new google.auth.OAuth2(
       clientId,

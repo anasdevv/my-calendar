@@ -81,3 +81,17 @@ export const scheduleAvailabilitiesRelations = relations(
     }),
   })
 );
+
+export const schema = {
+  // Tables
+  eventsTable,
+  schedulesTable,
+  scheduleAvailabilitiesTable,
+
+  // Relations
+  schedulesRelations,
+  scheduleAvailabilitiesRelations,
+
+  // Enums
+  scheduleDayOfWeekEnum,
+};

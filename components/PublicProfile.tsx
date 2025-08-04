@@ -7,10 +7,12 @@ import { useUser } from '@clerk/nextjs';
 import { Button } from './ui/button';
 import { toast } from 'sonner';
 import PublicEventCard from './PublicEventCard';
+import { EventRow } from '@/lib/types/event';
 
 type PublicProfileProps = {
   userId: string;
   fullName: string | null;
+  events: EventRow[];
 };
 
 export default function PublicProfile({

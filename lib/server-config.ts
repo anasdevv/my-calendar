@@ -1,13 +1,5 @@
 import invariant from 'tiny-invariant';
 
-/**
- * Server-side configuration loaded once into memory
- * This ensures environment variables are not accessed repeatedly
- * and cannot be exposed to the client side
- *
- * SECURITY NOTE: This file should never be imported in client-side code
- * as it contains sensitive server configuration
- */
 class ServerConfig {
   private static instance: ServerConfig | null = null;
 
@@ -16,30 +8,45 @@ class ServerConfig {
     clientSecret: string;
     redirectUri: string;
   };
+  public readonly databaseUrl: string;
 
   private constructor() {
-    // Load environment variables once during instantiation
+    if (typeof window !== 'undefined') {
+      throw new Error(
+        'ServerConfig can only be instantiated on the server side'
+      );
+    }
+
     const {
       GOOGLE_CLIENT_ID: clientId,
       GOOGLE_CLIENT_SECRET: clientSecret,
       GOOGLE_AUTHORIZED_REDIRECT_URI: redirectUri,
+      DATABASE_URL: databaseUrl,
     } = process.env;
 
-    invariant(clientId, 'GOOGLE_CLIENT_ID environment variable is not defined');
     invariant(
-      clientSecret,
+      clientId?.trim(),
+      'GOOGLE_CLIENT_ID environment variable is not defined'
+    );
+    invariant(
+      clientSecret?.trim(),
       'GOOGLE_CLIENT_SECRET environment variable is not defined'
     );
     invariant(
-      redirectUri,
+      redirectUri?.trim(),
       'GOOGLE_AUTHORIZED_REDIRECT_URI environment variable is not defined'
+    );
+    invariant(
+      databaseUrl?.trim(),
+      'DATABASE_URL environment variable is not defined'
     );
 
     this.google = {
-      clientId,
-      clientSecret,
-      redirectUri,
+      clientId: clientId!,
+      clientSecret: clientSecret!,
+      redirectUri: redirectUri!,
     };
+    this.databaseUrl = databaseUrl!;
   }
 
   public static getInstance(): ServerConfig {
@@ -54,4 +61,7 @@ class ServerConfig {
   }
 }
 
-export const serverConfig = ServerConfig.getInstance();
+export const getServerConfig = () => ServerConfig.getInstance();
+
+export const getGoogleConfig = () => getServerConfig().google;
+export const getDatabaseUrl = () => getServerConfig().databaseUrl;
