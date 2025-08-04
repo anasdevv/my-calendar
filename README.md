@@ -53,6 +53,25 @@ db/             # Database schema and migrations
 - Edit `drizzle.config.ts` for database settings.
 - Update environment variables as needed for Google integration and authentication.
 
+## Environment Variables
+
+Create a `.env` file in the project root and add the following variables (see `copy.env` for reference):
+
+```env
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=        # Clerk publishable key for frontend authentication
+CLERK_SECRET_KEY=                         # Clerk secret key for backend authentication
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=            # Clerk sign-in URL
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=            # Clerk sign-up URL
+NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL= # Optional: force redirect after sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL= # Optional: force redirect after sign-up
+DATABASE_URL=                             # Database connection string
+GOOGLE_CLIENT_ID=                         # Google OAuth client ID
+GOOGLE_CLIENT_SECRET=                     # Google OAuth client secret
+GOOGLE_AUTHORIZED_REDIRECT_URI=           # Google OAuth redirect URI
+```
+
+Be sure to fill in your actual values for each variable.
+
 ## Contributing
 
 Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
