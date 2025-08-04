@@ -21,7 +21,7 @@ export const Navbar = async () => {
         href={user ? '/events' : '/login'}
         className="flex items-center gap-1 hover:scale-150 duration-500"
       >
-        <Image src={'/logo.svg'} width={60} height={60} alt="logo" />
+        <Image src={'/logo2.svg'} width={60} height={60} alt="logo" />
       </Link>
 
       <section className="sticky top-0 flex justify-between">

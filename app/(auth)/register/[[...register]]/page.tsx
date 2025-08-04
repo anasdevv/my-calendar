@@ -5,7 +5,7 @@ export default function RegisterPage() {
   return (
     <main className="flex flex-col items-center gap-10 p-10 animate-fade-in">
       <Image
-        src="/logo.svg"
+        src="/logo2.svg"
         alt="My Calendar Logo"
         width={100}
         height={100}

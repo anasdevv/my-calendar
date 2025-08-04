@@ -251,7 +251,7 @@ export default function LandingPage() {
           >
             <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/20 rounded-full blur-xl scale-110 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             <Image
-              src="/logo.svg"
+              src="/logo2.svg"
               width={300}
               height={300}
               alt="Logo"
