@@ -1,4 +1,4 @@
-import { Navbar } from '@/components/Navbar';
+import Navbar from '@/components/Navbar';
 import { NavbarSkeleton } from '@/components/NavbarSkeleton';
 import { Suspense } from 'react';
 
@@ -12,7 +12,7 @@ export default async function Layout({
       <Suspense fallback={<NavbarSkeleton />}>
         <Navbar />
       </Suspense>
-      <section className="pt-36">{children}</section>
+      <section className="pt-6">{children}</section>
     </main>
   );
 }

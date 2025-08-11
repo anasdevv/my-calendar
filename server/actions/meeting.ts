@@ -4,6 +4,8 @@ import { MeetingActionData, meetingActionSchema } from '@/validations/meeting';
 import { getAvailableTimeSlots } from './schedule';
 import { fromZonedTime } from 'date-fns-tz';
 import { createGoogleCalendarEvent } from './event';
+import { eventsTable } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 const db = getDbInstance();
 
@@ -45,7 +47,6 @@ export const createMeeting = async (
       error: 'No available time slots found for the selected time',
     };
   }
-  console.log('validTimeSlots', validTimeSlots);
   const createEventResult = await createGoogleCalendarEvent({
     userId: clerkUserId,
     guests: [
@@ -59,7 +60,21 @@ export const createMeeting = async (
     duration: event.duration,
     eventName: event.name,
   });
-  console.log('createEventResult', createEventResult);
+  await db.transaction(async tx => {
+    const event = await tx
+      .select()
+      .from(eventsTable)
+      .where(eq(eventsTable.id, eventId))
+      .for('update');
+
+    await tx
+      .update(eventsTable)
+      .set({
+        bookings: (event[0]?.bookings ?? 0) + 1,
+        lastBooked: new Date(),
+      })
+      .where(eq(eventsTable.id, eventId));
+  });
   if (!createEventResult?.success) {
     return {
       success: false,

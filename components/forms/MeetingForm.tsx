@@ -18,12 +18,11 @@ import {
   Loader2,
   Check,
   ArrowLeft,
-  ArrowRight,
-  CheckCircle,
+  Video,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback, memo } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '../ui/button';
@@ -37,6 +36,7 @@ import {
   FormMessage,
 } from '../ui/form';
 import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import {
   Select,
@@ -46,23 +46,90 @@ import {
   SelectValue,
 } from '../ui/select';
 import { Textarea } from '../ui/textarea';
+import { Badge } from '../ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { MeetingFormData, meetingFormSchema } from '@/validations/meeting';
 import BookingLoading from '../BookingLoading';
 import { createMeeting } from '@/server/actions/meeting';
-import { Virtuoso } from 'react-virtuoso';
+
+// Pre-calculate timezone list to avoid recalculation
+const TIMEZONE_LIST = Intl.supportedValuesOf('timeZone');
+
+const eventConfig = {
+  name: 'Meeting',
+  duration: 30,
+  color: '#7C3AED',
+  description: 'Standard meeting session',
+};
+
+// Memoized timezone option component
+const TimezoneOption = memo(
+  ({ timezone, onClick }: { timezone: string; onClick: () => void }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-left px-3 py-2 hover:bg-gray-100 focus:bg-gray-100 text-sm"
+    >
+      {timezone} ({formatTimezoneOffset(timezone)})
+    </button>
+  )
+);
+
+TimezoneOption.displayName = 'TimezoneOption';
+
+// Memoized date button component
+const DateButton = memo(
+  ({ dateItem, onClick }: { dateItem: Date; onClick: () => void }) => (
+    <Button
+      variant="outline"
+      onClick={onClick}
+      className="h-auto p-4 flex flex-col items-center space-y-2 hover:bg-primary hover:text-white border-2 hover:border-primary"
+    >
+      <span className="text-xs font-medium">
+        {dateItem.toLocaleDateString('en-US', { weekday: 'short' })}
+      </span>
+      <span className="text-lg font-bold">{dateItem.getDate()}</span>
+      <span className="text-xs">
+        {dateItem.toLocaleDateString('en-US', { month: 'short' })}
+      </span>
+    </Button>
+  )
+);
+
+DateButton.displayName = 'DateButton';
+
+// Memoized time button component
+const TimeButton = memo(
+  ({ time, onClick }: { time: Date; onClick: () => void }) => (
+    <Button
+      variant="outline"
+      onClick={onClick}
+      className="h-12 border-2 hover:bg-primary hover:text-white hover:border-primary"
+    >
+      <Clock className="w-4 h-4 mr-2" />
+      {formatTimeString(time)}
+    </Button>
+  )
+);
+
+TimeButton.displayName = 'TimeButton';
+
+interface MeetingFormProps {
+  validTimeSlots: Date[];
+  eventId: number;
+  clerkUserId: string;
+}
 
 export default function MeetingForm({
   validTimeSlots,
   eventId,
   clerkUserId,
-}: {
-  validTimeSlots: Date[];
-  eventId: number;
-  clerkUserId: string;
-}) {
+}: MeetingFormProps) {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(0);
-  const [isTimezoneLoading, setIsTimezoneLoading] = useState(false);
+  const [step, setStep] = useState<
+    'date' | 'time' | 'details' | 'confirmation'
+  >('date');
+  const [showTimezoneDropdown, setShowTimezoneDropdown] = useState(false);
 
   const form = useForm<MeetingFormData>({
     resolver: zodResolver(meetingFormSchema),
@@ -74,512 +141,444 @@ export default function MeetingForm({
     },
   });
 
-  const timezone = form.watch('timezone');
-  const date = form.watch('date');
-  const startTime = form.watch('startTime');
+  // Get form values once to avoid multiple watches
+  const formValues = form.getValues();
+  const [currentTimezone, setCurrentTimezone] = useState(formValues.timezone);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+    formValues.date
+  );
+  const [selectedTime, setSelectedTime] = useState<Date | undefined>(
+    formValues.startTime
+  );
 
+  // Optimized timezone conversion with memoization
   const validTimeSlotsInTimezone = useMemo(() => {
-    if (!timezone) return [];
-    setIsTimezoneLoading(true);
-    const result = validTimeSlots.map(date => toZonedTime(date, timezone));
-    setTimeout(() => setIsTimezoneLoading(false), 100);
-    return result;
-  }, [validTimeSlots, timezone]);
+    if (!currentTimezone || !validTimeSlots.length) return [];
 
-  const steps = [
-    { number: 1, title: 'Time' },
-    { number: 2, title: 'Details' },
-    { number: 3, title: 'Confirm' },
-  ];
-
-  const canProceedToStep2 = timezone && date && startTime;
-  const canProceedToStep3 = form.watch('guestName') && form.watch('guestEmail');
-
-  async function onSubmit(values: MeetingFormData) {
     try {
-      const createMeetingResponse = await createMeeting({
-        ...values,
-        eventId,
-        clerkUserId,
-      });
-
-      if (!createMeetingResponse?.success) {
-        form.setError('root', {
-          message: createMeetingResponse?.error,
-        });
-        return;
-      }
-
-      const path = `/book/${clerkUserId}/${eventId}/success?startTime=${values.startTime.toISOString()}`;
-      router.push(path);
-    } catch (error: any) {
-      console.error('Error creating meeting:', error);
-      form.setError('root', {
-        message: `There was an unknown error saving your event ${error.message}`,
-      });
+      return validTimeSlots.map(date => toZonedTime(date, currentTimezone));
+    } catch (error) {
+      console.error('Error converting timezone:', error);
+      return validTimeSlots; // fallback to original times
     }
-  }
+  }, [validTimeSlots, currentTimezone]);
+
+  // Memoized unique dates
+  const uniqueDates = useMemo(() => {
+    const seen = new Set<string>();
+    return validTimeSlotsInTimezone.filter(dateItem => {
+      const dateString = dateItem.toDateString();
+      if (seen.has(dateString)) return false;
+      seen.add(dateString);
+      return true;
+    });
+  }, [validTimeSlotsInTimezone]);
+
+  // Memoized time slots for selected date
+  const availableTimes = useMemo(() => {
+    if (!selectedDate) return [];
+    return validTimeSlotsInTimezone.filter(time =>
+      isSameDay(time, selectedDate)
+    );
+  }, [validTimeSlotsInTimezone, selectedDate]);
+
+  // Optimized callbacks
+  const handleTimezoneChange = useCallback(
+    (timezone: string) => {
+      setCurrentTimezone(timezone);
+      form.setValue('timezone', timezone);
+      setShowTimezoneDropdown(false);
+    },
+    [form]
+  );
+
+  const handleDateSelect = useCallback(
+    (selectedDate: Date) => {
+      setSelectedDate(selectedDate);
+      form.setValue('date', selectedDate);
+      setStep('time');
+    },
+    [form]
+  );
+
+  const handleTimeSelect = useCallback(
+    (time: Date) => {
+      setSelectedTime(time);
+      form.setValue('startTime', time);
+      setStep('details');
+    },
+    [form]
+  );
+
+  const handleFormSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    setStep('confirmation');
+  }, []);
+
+  const onSubmit = useCallback(
+    async (values: MeetingFormData) => {
+      try {
+        const createMeetingResponse = await createMeeting({
+          ...values,
+          eventId,
+          clerkUserId,
+        });
+
+        if (!createMeetingResponse?.success) {
+          form.setError('root', {
+            message: createMeetingResponse?.error,
+          });
+          return;
+        }
+
+        const path = `/book/${clerkUserId}/${eventId}/success?startTime=${values.startTime.toISOString()}`;
+        router.push(path);
+      } catch (error: any) {
+        console.error('Error creating meeting:', error);
+        form.setError('root', {
+          message: `There was an unknown error saving your event ${error.message}`,
+        });
+      }
+    },
+    [eventId, clerkUserId, form, router]
+  );
 
   if (form.formState.isSubmitting) return <BookingLoading />;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl w-full mx-auto">
-        {' '}
-        {/* Max-width focused for single column */}
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
-            Schedule Your Meeting
-          </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400">
-            A few quick steps to book your time.
-          </p>
-        </div>
-        {/* Progress Bar (Minimalist) */}
-        <div className="mb-8">
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
-            <div
-              className="bg-blue-600 h-full transition-all duration-300 ease-in-out"
-              style={{ width: `${(currentStep / steps.length) * 100}%` }}
-            />
-          </div>
-          <div className="flex justify-between mt-2">
-            {steps.map(step => (
-              <span
-                key={step.number}
-                className={cn(
-                  'text-xs font-medium',
-                  currentStep >= step.number
-                    ? 'text-blue-700 dark:text-blue-300'
-                    : 'text-gray-500 dark:text-gray-400'
-                )}
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Event Header */}
+          <div className="text-center mb-8">
+            <Link
+              href={`/book/${clerkUserId}`}
+              className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-4"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Event Selection
+            </Link>
+            <div className="flex items-center justify-center space-x-3 mb-4">
+              <div
+                className="w-12 h-12 rounded-lg flex items-center justify-center text-white"
+                style={{ backgroundColor: eventConfig.color }}
               >
-                {step.number}. {step.title}
-              </span>
-            ))}
-          </div>
-        </div>
-        {/* Main Form Card */}
-        <div className="bg-white dark:bg-gray-850 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
-              {/* Error Message */}
-              {form.formState.errors.root && (
-                <div className="p-4 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 text-sm">
-                  <span className="font-medium">
-                    {form.formState.errors.root.message}
-                  </span>
-                </div>
-              )}
-
-              <div className="p-8 min-h-[450px]">
-                {' '}
-                {/* Refined padding and min-height */}
-                {/* Step 1: Time Selection */}
-                {currentStep === 0 && (
-                  <div className="space-y-6">
-                    {' '}
-                    {/* Consistent spacing */}
-                    <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
-                      Select Time & Date
-                    </h2>
-                    {/* Timezone */}
-                    <FormField
-                      control={form.control}
-                      name="timezone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                            <Globe className="w-4 h-4 text-gray-500" />
-                            Timezone
-                          </FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value || ''}
-                          >
-                            <FormControl>
-                              <SelectTrigger className="h-11 text-base border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 rounded-lg">
-                                <SelectValue asChild>
-                                  <span className="flex items-center gap-2 text-gray-800 dark:text-gray-200">
-                                    {field.value ? (
-                                      <>
-                                        <Globe className="w-4 h-4 text-gray-400" />
-                                        <span className="truncate">
-                                          {field.value} (
-                                          {formatTimezoneOffset(field.value)})
-                                        </span>
-                                      </>
-                                    ) : (
-                                      'Select timezone'
-                                    )}
-                                  </span>
-                                </SelectValue>
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent className="border border-gray-200 dark:border-gray-700 shadow-md rounded-lg">
-                              <Virtuoso
-                                style={{
-                                  height: '250px',
-                                  width: '100%',
-                                  overflowX: 'hidden',
-                                }}
-                                totalCount={
-                                  Intl.supportedValuesOf('timeZone').length
-                                }
-                                itemContent={index => {
-                                  const timezone =
-                                    Intl.supportedValuesOf('timeZone')[index];
-                                  return (
-                                    <SelectItem
-                                      key={timezone}
-                                      value={timezone}
-                                      className="py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    >
-                                      {timezone} (
-                                      {formatTimezoneOffset(timezone)})
-                                    </SelectItem>
-                                  );
-                                }}
-                              />
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    {/* Date and Time (Single Column) */}
-                    <div className="space-y-6">
-                      {/* Date Picker */}
-                      <FormField
-                        control={form.control}
-                        name="date"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                              <CalendarIcon className="w-4 h-4 text-gray-500" />
-                              Choose Date
-                            </FormLabel>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <FormControl>
-                                  <Button
-                                    variant="outline"
-                                    className={cn(
-                                      'w-full h-11 text-base border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 justify-start rounded-lg',
-                                      !field.value && 'text-muted-foreground'
-                                    )}
-                                  >
-                                    <CalendarIcon className="mr-3 h-4 w-4 text-gray-400" />
-                                    {field.value
-                                      ? formatDate(field.value)
-                                      : 'Select date'}
-                                  </Button>
-                                </FormControl>
-                              </PopoverTrigger>
-                              <PopoverContent
-                                className="w-auto p-0 border border-gray-200 dark:border-gray-700 shadow-md rounded-lg"
-                                align="center"
-                              >
-                                <Calendar
-                                  mode="single"
-                                  selected={field.value}
-                                  onSelect={field.onChange}
-                                  disabled={(date: string | Date) =>
-                                    !validTimeSlotsInTimezone.some(time =>
-                                      isSameDay(date, time)
-                                    )
-                                  }
-                                  autoFocus
-                                />
-                              </PopoverContent>
-                            </Popover>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      {/* Time Slots */}
-                      <FormField
-                        control={form.control}
-                        name="startTime"
-                        render={({ field }) => {
-                          const filteredTimes = validTimeSlotsInTimezone.filter(
-                            time => (date ? isSameDay(time, date) : false)
-                          );
-
-                          return (
-                            <FormItem>
-                              <FormLabel className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                <Clock className="w-4 h-4 text-gray-500" />
-                                Available Times
-                              </FormLabel>
-                              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 min-h-[150px] border border-gray-200 dark:border-gray-700">
-                                {isTimezoneLoading ? (
-                                  <div className="flex items-center justify-center h-full">
-                                    <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-                                  </div>
-                                ) : !date || !timezone ? (
-                                  <div className="flex items-center justify-center h-full text-center text-gray-500 dark:text-gray-400 text-sm">
-                                    Select date and timezone to see times.
-                                  </div>
-                                ) : filteredTimes.length === 0 ? (
-                                  <div className="flex items-center justify-center h-full text-center text-gray-500 dark:text-gray-400 text-sm">
-                                    No available times for this date.
-                                  </div>
-                                ) : (
-                                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-48 overflow-y-auto custom-scrollbar">
-                                    {filteredTimes.map(time => {
-                                      const isSelected =
-                                        field.value?.toISOString() ===
-                                        time.toISOString();
-                                      return (
-                                        <button
-                                          key={time.toISOString()}
-                                          type="button"
-                                          className={cn(
-                                            'h-10 rounded-md text-sm font-medium transition-colors duration-200 border',
-                                            isSelected
-                                              ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                                              : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-gray-750'
-                                          )}
-                                          onClick={() => field.onChange(time)}
-                                        >
-                                          {formatTimeString(time)}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-                              </div>
-                              <FormMessage />
-                            </FormItem>
-                          );
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-                {/* Step 2: User Details */}
-                {currentStep === 1 && (
-                  <div className="space-y-6">
-                    <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
-                      Your Contact Details
-                    </h2>
-
-                    <FormField
-                      control={form.control}
-                      name="guestName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                            <User className="w-4 h-4 text-gray-500" />
-                            Full Name
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              className="h-11 text-base border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 rounded-lg"
-                              placeholder="John Doe"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="guestEmail"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                            <Mail className="w-4 h-4 text-gray-500" />
-                            Email Address
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="email"
-                              {...field}
-                              className="h-11 text-base border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 rounded-lg"
-                              placeholder="john@example.com"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="guestNotes"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                            <MessageSquare className="w-4 h-4 text-gray-500" />
-                            Additional Notes (Optional)
-                          </FormLabel>
-                          <FormControl>
-                            <Textarea
-                              className="resize-none min-h-[100px] text-base border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 rounded-lg"
-                              {...field}
-                              placeholder="Anything you'd like to discuss or prepare for the meeting..."
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-                {/* Step 3: Confirmation */}
-                {currentStep === 2 && (
-                  <div className="space-y-6">
-                    <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
-                      Review & Confirm
-                    </h2>
-
-                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 space-y-4 border border-gray-200 dark:border-gray-600">
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2 mb-1">
-                          <CalendarIcon className="w-4 h-4 text-blue-600" />
-                          Date & Time
-                        </h3>
-                        <p className="text-base font-semibold text-gray-900 dark:text-white">
-                          {date && formatDate(date)} @{' '}
-                          {startTime && formatTimeString(startTime)}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {timezone &&
-                            `${timezone} (${formatTimezoneOffset(timezone)})`}
-                        </p>
-                      </div>
-
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2 mb-1">
-                          <User className="w-4 h-4 text-green-600" />
-                          Contact Information
-                        </h3>
-                        <p className="text-base font-semibold text-gray-900 dark:text-white">
-                          {form.watch('guestName')}
-                        </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {form.watch('guestEmail')}
-                        </p>
-                      </div>
-
-                      {form.watch('guestNotes') && (
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2 mb-1">
-                            <MessageSquare className="w-4 h-4 text-purple-600" />
-                            Notes
-                          </h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {form.watch('guestNotes')}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                <Video className="w-6 h-6" />
               </div>
+              <div className="text-left">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {eventConfig.name}
+                </h1>
+                <div className="flex items-center space-x-4 text-gray-600">
+                  <div className="flex items-center">
+                    <Clock className="w-4 h-4 mr-1" />
+                    {eventConfig.duration} min
+                  </div>
+                  <div className="flex items-center">
+                    <Video className="w-4 h-4 mr-1" />
+                    Video Call
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p className="text-gray-600">{eventConfig.description}</p>
+          </div>
 
-              {/* Navigation */}
-              <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-between items-center">
-                <div>
-                  {currentStep > 0 && (
+          {/* Progress Indicator */}
+          <div className="flex items-center justify-center mb-8">
+            <div className="flex items-center space-x-4">
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  step === 'date'
+                    ? 'bg-primary text-white'
+                    : step === 'time' ||
+                        step === 'details' ||
+                        step === 'confirmation'
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-200 text-gray-600'
+                }`}
+              >
+                1
+              </div>
+              <div
+                className={`w-16 h-0.5 ${
+                  step === 'time' ||
+                  step === 'details' ||
+                  step === 'confirmation'
+                    ? 'bg-green-500'
+                    : 'bg-gray-200'
+                }`}
+              />
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  step === 'time'
+                    ? 'bg-primary text-white'
+                    : step === 'details' || step === 'confirmation'
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-200 text-gray-600'
+                }`}
+              >
+                2
+              </div>
+              <div
+                className={`w-16 h-0.5 ${
+                  step === 'details' || step === 'confirmation'
+                    ? 'bg-green-500'
+                    : 'bg-gray-200'
+                }`}
+              />
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  step === 'details'
+                    ? 'bg-primary text-white'
+                    : step === 'confirmation'
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-200 text-gray-600'
+                }`}
+              >
+                3
+              </div>
+            </div>
+          </div>
+
+          {/* Error Message */}
+          {form.formState.errors.root && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+              <span className="font-medium">
+                {form.formState.errors.root.message}
+              </span>
+            </div>
+          )}
+
+          {step === 'date' && (
+            <Card className="shadow-xl border-0">
+              <CardHeader className="text-center">
+                <CardTitle className="text-2xl font-bold text-gray-900 mb-2">
+                  Select a Date
+                </CardTitle>
+                <p className="text-gray-600">
+                  Choose from available dates below
+                </p>
+              </CardHeader>
+              <CardContent>
+                {/* Timezone Selector */}
+                <div className="mb-8">
+                  <Label className="flex items-center gap-2 text-base font-medium text-gray-700 mb-3">
+                    <Globe className="w-5 h-5 text-gray-500" />
+                    Timezone
+                  </Label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowTimezoneDropdown(!showTimezoneDropdown)
+                      }
+                      className="w-full h-12 px-3 py-2 text-left border-2 rounded-lg bg-white flex items-center justify-between hover:border-primary focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-gray-400" />
+                        <span className="truncate">
+                          {currentTimezone} (
+                          {formatTimezoneOffset(currentTimezone)})
+                        </span>
+                      </span>
+                    </button>
+                    {showTimezoneDropdown && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        {TIMEZONE_LIST.slice(0, 50).map(timezone => (
+                          <TimezoneOption
+                            key={timezone}
+                            timezone={timezone}
+                            onClick={() => handleTimezoneChange(timezone)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Available Dates Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-7 gap-3 max-w-3xl mx-auto">
+                  {uniqueDates.map((dateItem, index) => (
+                    <DateButton
+                      key={`${dateItem.toISOString()}-${index}`}
+                      dateItem={dateItem}
+                      onClick={() => handleDateSelect(dateItem)}
+                    />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {step === 'time' && selectedDate && (
+            <Card className="shadow-xl border-0">
+              <CardHeader className="text-center">
+                <CardTitle className="text-2xl font-bold text-gray-900 mb-2">
+                  Select a Time
+                </CardTitle>
+                <Badge variant="outline" className="px-4 py-2">
+                  <CalendarIcon className="w-4 h-4 mr-2" />
+                  {formatDate(selectedDate)}
+                </Badge>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl mx-auto">
+                  {availableTimes.map(time => (
+                    <TimeButton
+                      key={time.toISOString()}
+                      time={time}
+                      onClick={() => handleTimeSelect(time)}
+                    />
+                  ))}
+                </div>
+                <div className="flex justify-center mt-6">
+                  <Button variant="ghost" onClick={() => setStep('date')}>
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back to Date Selection
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {step === 'details' && (
+            <Card className="shadow-xl border-0">
+              <CardHeader className="text-center">
+                <CardTitle className="text-2xl font-bold text-gray-900 mb-2">
+                  Your Details
+                </CardTitle>
+                <div className="flex justify-center space-x-4">
+                  <Badge variant="outline" className="px-4 py-2">
+                    <CalendarIcon className="w-4 h-4 mr-2" />
+                    {selectedDate && formatDate(selectedDate)}
+                  </Badge>
+                  <Badge variant="outline" className="px-4 py-2">
+                    <Clock className="w-4 h-4 mr-2" />
+                    {selectedTime && formatTimeString(selectedTime)}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <form
+                  onSubmit={handleFormSubmit}
+                  className="max-w-md mx-auto space-y-6"
+                >
+                  <div>
+                    <Label htmlFor="name" className="flex items-center mb-2">
+                      <User className="w-4 h-4 mr-2" />
+                      Full Name
+                    </Label>
+                    <Input
+                      id="name"
+                      required
+                      {...form.register('guestName')}
+                      className="h-12"
+                      placeholder="Enter your full name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="email" className="flex items-center mb-2">
+                      <Mail className="w-4 h-4 mr-2" />
+                      Email Address
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      required
+                      {...form.register('guestEmail')}
+                      className="h-12"
+                      placeholder="Enter your email address"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="message" className="flex items-center mb-2">
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      Message (Optional)
+                    </Label>
+                    <Textarea
+                      id="message"
+                      {...form.register('guestNotes')}
+                      className="min-h-24"
+                      placeholder="Tell us what you'd like to discuss..."
+                    />
+                  </div>
+                  <div className="flex gap-3">
                     <Button
                       type="button"
-                      variant="outline"
-                      onClick={() => setCurrentStep(prev => prev - 1)}
-                      className="h-11 px-5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-750 rounded-lg"
+                      variant="ghost"
+                      onClick={() => setStep('time')}
+                      className="flex-1"
                     >
                       <ArrowLeft className="w-4 h-4 mr-2" />
                       Back
                     </Button>
-                  )}
-                </div>
+                    <Button type="submit" className="flex-1">
+                      Confirm Booking
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          )}
 
-                <div className="flex gap-3">
+          {step === 'confirmation' && (
+            <Card className="shadow-xl border-0">
+              <CardContent className="text-center py-12">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Check className="w-8 h-8 text-green-600" />
+                </div>
+                <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                  Meeting Confirmed!
+                </h2>
+                <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                  Your meeting has been successfully scheduled. You'll receive a
+                  confirmation email shortly.
+                </p>
+                <div className="bg-gray-50 rounded-lg p-6 max-w-md mx-auto mb-8">
+                  <h3 className="font-semibold text-gray-900 mb-3">
+                    Meeting Details
+                  </h3>
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <div className="flex items-center">
+                      <CalendarIcon className="w-4 h-4 mr-2" />
+                      {selectedDate && formatDate(selectedDate)}
+                    </div>
+                    <div className="flex items-center">
+                      <Clock className="w-4 h-4 mr-2" />
+                      {selectedTime && formatTimeString(selectedTime)}
+                    </div>
+                    <div className="flex items-center">
+                      <User className="w-4 h-4 mr-2" />
+                      {formValues.guestName}
+                    </div>
+                    <div className="flex items-center">
+                      <Mail className="w-4 h-4 mr-2" />
+                      {formValues.guestEmail}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-3 justify-center">
                   <Button
-                    type="button"
+                    onClick={() => {
+                      setStep('date');
+                      setSelectedDate(undefined);
+                      setSelectedTime(undefined);
+                      form.reset();
+                    }}
                     variant="outline"
-                    asChild
-                    className="h-11 px-5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-750 rounded-lg"
                   >
-                    <Link href={`/book/${clerkUserId}`}>Cancel</Link>
+                    Book Another Meeting
                   </Button>
-
-                  {currentStep < 3 ? (
-                    <Button
-                      type="button"
-                      onClick={() => setCurrentStep(prev => prev + 1)}
-                      disabled={
-                        (currentStep === 1 && !canProceedToStep2) ||
-                        (currentStep === 2 && !canProceedToStep3)
-                      }
-                      className="h-11 px-6 bg-blue-600 hover:bg-blue-700 text-white shadow-md rounded-lg"
-                    >
-                      Continue
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  ) : (
-                    <Button
-                      type="submit"
-                      disabled={form.formState.isSubmitting}
-                      className="h-11 px-6 bg-green-600 hover:bg-green-700 text-white shadow-md rounded-lg"
-                    >
-                      {form.formState.isSubmitting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Booking...
-                        </>
-                      ) : (
-                        <>
-                          <Check className="w-4 h-4 mr-2" />
-                          Confirm Booking
-                        </>
-                      )}
-                    </Button>
-                  )}
+                  <Button onClick={() => onSubmit(form.getValues())}>
+                    Confirm & Save
+                  </Button>
                 </div>
-              </div>
-            </form>
-          </Form>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
-      {/* Custom Scrollbar CSS (add to your global CSS or a dedicated component CSS file) */}
-      <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background-color: rgba(
-            156,
-            163,
-            175,
-            0.5
-          ); /* gray-400 with opacity */
-          border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background-color: rgba(
-            107,
-            114,
-            128,
-            0.7
-          ); /* gray-500 with opacity */
-        }
-        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-          background-color: rgba(75, 85, 99, 0.5); /* gray-600 with opacity */
-        }
-        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background-color: rgba(55, 65, 81, 0.7); /* gray-700 with opacity */
-        }
-      `}</style>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { DAYS_OF_WEEK } from '@/constants';
-import { relations } from 'drizzle-orm';
+import { max, relations } from 'drizzle-orm';
 import {
   boolean,
   index,
@@ -28,6 +28,17 @@ export const eventsTable = pgTable(
     duration: integer().notNull(),
     clerkUserId: varchar({ length: 255 }).notNull(),
     isActive: boolean().default(true),
+    bufferBefore: integer().default(0),
+    bufferAfter: integer().default(0),
+    allowInviteeCancel: boolean().default(true),
+    allowInviteeReschedule: boolean().default(true),
+    requireConfirmation: boolean().default(false),
+    color: text().default('#3B82F6'),
+    totalBookings: integer().default(0),
+    lastBooked: timestamp().defaultNow(),
+    maxAdvanceBooking: integer().default(30).notNull(),
+    minAdvanceBooking: integer().default(1).notNull(),
+    bookings: integer().default(0),
     createdAt,
     updatedAt,
   },

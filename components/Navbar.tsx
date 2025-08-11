@@ -1,35 +1,81 @@
+import { Button } from '@/components/ui/button';
+import { Calendar, Settings, Plus, BarChart3, User } from 'lucide-react';
 import {
-  ClerkLoading,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { JSX } from 'react';
+import Link from 'next/link';
+import { NavLink } from './NavLink';
+import { currentUser } from '@clerk/nextjs/server';
+import {
   SignedIn,
   SignInButton,
   SignUpButton,
   UserButton,
 } from '@clerk/nextjs';
-import Image from 'next/image';
-import Link from 'next/link';
-import { Button } from './ui/button';
-import { currentUser } from '@clerk/nextjs/server';
-import { NavLinks } from '@/constants';
-import { cn } from '@/lib/utils';
-import { NavItem } from './NavItem';
 
-export const Navbar = async () => {
+export default async function Navbar() {
+  const isDashboard = true;
   const user = await currentUser();
   return (
-    <nav className="flex justify-between items-center fixed z-50 w-full h-28 bg-gray-300 px-10 gap-4 shadow-2xl">
-      <Link
-        href={user ? '/events' : '/login'}
-        className="flex items-center gap-1 hover:scale-150 duration-500"
-      >
-        <Image src={'/logo2.svg'} width={60} height={60} alt="logo" />
-      </Link>
+    <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
+      <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        {/* Logo */}
+        <Link href="/" className="flex items-center space-x-2">
+          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+            <Calendar className="w-5 h-5 text-primary-foreground" />
+          </div>
+          <span className="text-xl font-bold">MeetFlow</span>
+        </Link>
 
-      <section className="sticky top-0 flex justify-between">
-        <div className="flex flex-1 max-sm:gap-0 sm:gap-6">
-          {user ? (
-            NavLinks.map(navLink => (
-              <NavItem key={navLink.label} {...navLink} />
-            ))
+        {/* Navigation */}
+        <nav className="hidden md:flex items-center space-x-2">
+          {Boolean(user) && (
+            <>
+              <NavLink
+                to="/dashboard"
+                icon={<BarChart3 className="w-4 h-4" />}
+                label="Dashboard"
+              />
+
+              <NavLink
+                to="/events"
+                icon={<Plus className="w-4 h-4" />}
+                label="Events"
+              />
+
+              <NavLink
+                to="/schedule"
+                icon={<Calendar className="w-4 h-4" />}
+                label="Schedule"
+              />
+            </>
+          )}
+        </nav>
+
+        {/* Right Side Actions */}
+        <div className="flex items-center space-x-3">
+          {Boolean(user) ? (
+            <>
+              <Link href="/book">
+                <Button variant="outline" size="sm">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Preview
+                </Button>
+              </Link>
+              {user && (
+                <div className="hover:scale-150 duration-500">
+                  <SignedIn>
+                    <UserButton />
+                  </SignedIn>
+                </div>
+              )}
+            </>
           ) : (
             <>
               <SignInButton>
@@ -48,14 +94,7 @@ export const Navbar = async () => {
             </>
           )}
         </div>
-      </section>
-      {user && (
-        <div className="hover:scale-150 duration-500">
-          <SignedIn>
-            <UserButton />
-          </SignedIn>
-        </div>
-      )}
-    </nav>
+      </div>
+    </header>
   );
-};
+}
