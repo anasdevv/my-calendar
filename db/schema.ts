@@ -1,5 +1,5 @@
 import { DAYS_OF_WEEK } from '@/constants';
-import { max, relations } from 'drizzle-orm';
+import { relations } from 'drizzle-orm';
 import {
   boolean,
   index,
@@ -10,7 +10,6 @@ import {
   timestamp,
   varchar,
 } from 'drizzle-orm/pg-core';
-import { createSelectSchema } from 'drizzle-zod';
 
 const createdAt = timestamp('createdAt').defaultNow().notNull();
 
@@ -38,7 +37,7 @@ export const eventsTable = pgTable(
     lastBooked: timestamp().defaultNow(),
     maxAdvanceBooking: integer().default(30).notNull(),
     minAdvanceBooking: integer().default(1).notNull(),
-    bookings: integer().default(0),
+    totalHours: integer().default(0).notNull(),
     createdAt,
     updatedAt,
   },
@@ -46,6 +45,40 @@ export const eventsTable = pgTable(
     index('clerkUserId_index').on(table.clerkUserId),
     index('createdAt_index').on(table.createdAt),
     index('isActive_index').on(table.isActive),
+  ]
+);
+
+export const BookingsTable = pgTable(
+  'bookings',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    eventId: integer()
+      .notNull()
+      .references(() => eventsTable.id, {
+        onDelete: 'cascade',
+      }),
+    userClerkId: varchar({ length: 255 }).notNull(),
+    calendarEventId: varchar({ length: 255 }).notNull(),
+    calendarId: varchar({ length: 255 }).notNull(),
+    status: varchar({ length: 50 }).notNull().default('confirmed'),
+    cancelledAt: timestamp(),
+    syncedAt: timestamp(),
+    startTime: timestamp().notNull(),
+    endTime: timestamp().notNull(),
+    duration: integer().notNull(),
+    timezone: varchar({ length: 255 }).notNull(),
+
+    attendeeEmail: varchar(),
+    attendeeName: varchar(),
+    notes: text(),
+
+    createdAt,
+    updatedAt,
+  },
+  table => [
+    index('eventId_index').on(table.eventId),
+    index('userClerkId_index').on(table.userClerkId),
+    index('status_index').on(table.status),
   ]
 );
 

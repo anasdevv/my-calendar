@@ -47,7 +47,7 @@ export default function EventCard({
   description,
   duration,
   clerkUserId,
-  bookings = 0,
+  totalBookings = 0,
   lastBooked,
   color,
   ...res
@@ -152,7 +152,7 @@ export default function EventCard({
                 <Clock className="w-4 h-4 mr-1" /> {duration} min
               </div>
               <div className="flex items-center">
-                <Users className="w-4 h-4 mr-1" /> {bookings} bookings
+                <Users className="w-4 h-4 mr-1" /> {totalBookings} bookings
               </div>
             </div>
             <Badge variant={isActive ? 'default' : 'secondary'}>

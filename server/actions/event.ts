@@ -306,3 +306,38 @@ export const createGoogleCalendarEvent = async ({
     };
   }
 };
+
+export const deleteGoogleCalendarEvent = async ({
+  userId,
+  eventId,
+}: {
+  userId: string;
+  eventId: string;
+}): Promise<void> => {
+  const calendar = GoogleCalendarService.getInstance();
+  return calendar.deleteEvent({
+    userId,
+    eventId,
+  });
+};
+
+export const getMostBookedEvents = async (
+  userId: string,
+  limit = 3
+): Promise<EventRow[]> => {
+  const db = getDbInstance();
+  try {
+    return db.query.eventsTable.findMany({
+      where: (events, { eq }) => {
+        return eq(events.clerkUserId, userId);
+      },
+      orderBy: (events, { desc }) => {
+        return desc(events.totalBookings);
+      },
+      limit,
+    });
+  } catch (error) {
+    console.error('Error fetching most booked events', error);
+    return [];
+  }
+};
