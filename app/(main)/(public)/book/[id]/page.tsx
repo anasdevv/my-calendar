@@ -10,6 +10,7 @@ export default async function BookingPage({
   const { id } = await params;
   const user = await currentUser();
   const events = await getAllEvents(id);
+  console.log('events', events);
   return (
     <PublicProfile
       fullName={user?.fullName ?? ''}

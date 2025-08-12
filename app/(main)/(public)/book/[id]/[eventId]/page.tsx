@@ -11,6 +11,9 @@ import { getEventById } from '@/server/actions/event';
 import { getAvailableTimeSlots } from '@/server/actions/schedule';
 import { clerkClient } from '@clerk/nextjs/server';
 import {
+  addDays,
+  addHours,
+  addMonths,
   addYears,
   eachMinuteOfInterval,
   endOfDay,
@@ -26,7 +29,7 @@ export default async function BookingPage({
   const { id: clerkUserId, eventId } = await params;
 
   const event = await getEventById(Number(eventId), clerkUserId);
-  console.log('BookingPage rendered', event);
+  console.log('event', event);
   if (!event)
     return (
       <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md flex items-center gap-2 text-sm max-w-md mx-auto mt-6">
@@ -38,12 +41,19 @@ export default async function BookingPage({
   const client = await clerkClient();
   const calendarUser = await client.users.getUser(clerkUserId);
 
-  const startDate = roundToNearestMinutes(new Date(), {
+  // also add event.minAdvanceBooking to startDate
+  // to ensure that the user can only book the event after the minimum advance booking time
+  // e.g. if event.minAdvanceBooking is 1 hour, then startDate should be at least 1 hour from now
+  const minAdvanceBooking = event.minAdvanceBooking || 1; // default to 1 hour if not set
+  // lets add minAdvanceBooking to startDate
+  // and round it to the nearest 15 minutes
+  const startDate = addHours(new Date(), minAdvanceBooking);
+  const roundedStartDate = roundToNearestMinutes(startDate, {
     nearestTo: 15,
     roundingMethod: 'ceil',
   });
 
-  const endDate = endOfDay(addYears(startDate, 1));
+  const endDate = endOfDay(addDays(roundedStartDate, event.maxAdvanceBooking));
 
   const validTimes = await getAvailableTimeSlots(
     // all possible times between startDate and endDate
