@@ -1,5 +1,5 @@
 import Navbar from '@/components/Navbar';
-import { NavbarSkeleton } from '@/components/NavbarSkeleton';
+import { NavbarSkeleton } from '@/components/skeletons/NavbarSkeleton';
 import { Suspense } from 'react';
 
 export default async function Layout({

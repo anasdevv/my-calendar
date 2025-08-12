@@ -20,7 +20,6 @@ import {
 } from '@clerk/nextjs';
 
 export default async function Navbar() {
-  const isDashboard = true;
   const user = await currentUser();
   return (
     <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">

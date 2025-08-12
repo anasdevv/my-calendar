@@ -1,9 +1,8 @@
-import EventForm from '@/components/forms/EventForm';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
-export default function NewEventPage() {
+export default function Layout({ children }: { children: React.ReactNode }) {
+  console.log('Layout for events page rendered');
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
@@ -21,7 +20,7 @@ export default function NewEventPage() {
           Set up a new meeting type for people to book with you.
         </p>
       </div>
-      <EventForm />
+      {children}
     </div>
   );
 }
