@@ -1,0 +1,1 @@
+ALTER TABLE "events" ADD COLUMN "bookings" integer DEFAULT 0;

@@ -82,11 +82,14 @@ export const updateEvent = async (
       };
     }
     const db = getDbInstance();
-
+    if (data.id) {
+      data.id = undefined;
+    }
     const { rowCount } = await db
       .update(eventsTable)
       .set({
         ...data,
+        // id: undefined,
       })
       .where(
         and(eq(eventsTable.id, id), eq(eventsTable.clerkUserId, user.userId))
@@ -152,7 +155,6 @@ export const deleteEvent = async (id: number): Promise<ActionResult> => {
       data: undefined,
     };
   } catch (error) {
-    console.log('Error deleting event:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -177,7 +179,6 @@ export const getEventById = async (
   eventId: number,
   userId: string
 ): Promise<EventRow | undefined> => {
-  console.log('Fetching event by ID:', eventId, 'for user:', userId);
   const db = getDbInstance();
   try {
     return db.query.eventsTable.findFirst({
@@ -196,14 +197,12 @@ export const getGoogleCalendarEventsTime = async (
   { end, start }: { start: Date; end: Date }
 ) => {
   try {
-    console.log('start', start, 'end', end);
     const calendar = GoogleCalendarService.getInstance();
     const events = await calendar.listEvents({
       userId,
       timeMin: start.toISOString(),
       timeMax: end.toISOString(),
     });
-    console.log('Fetched Google Calendar events:', events);
     if (!events || events.length === 0) {
       console.warn('No Google Calendar events found for user:', userId);
       return [];
@@ -305,5 +304,40 @@ export const createGoogleCalendarEvent = async ({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',
     };
+  }
+};
+
+export const deleteGoogleCalendarEvent = async ({
+  userId,
+  eventId,
+}: {
+  userId: string;
+  eventId: string;
+}): Promise<void> => {
+  const calendar = GoogleCalendarService.getInstance();
+  return calendar.deleteEvent({
+    userId,
+    eventId,
+  });
+};
+
+export const getMostBookedEvents = async (
+  userId: string,
+  limit = 3
+): Promise<EventRow[]> => {
+  const db = getDbInstance();
+  try {
+    return db.query.eventsTable.findMany({
+      where: (events, { eq }) => {
+        return eq(events.clerkUserId, userId);
+      },
+      orderBy: (events, { desc }) => {
+        return desc(events.totalBookings);
+      },
+      limit,
+    });
+  } catch (error) {
+    console.error('Error fetching most booked events', error);
+    return [];
   }
 };

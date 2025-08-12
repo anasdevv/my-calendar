@@ -1,13 +1,10 @@
 'use client';
 
-// import { getPublicEvents, PublicEvent } from '@/server/actions/events';
-import { useEffect, useState } from 'react';
-import { Copy, Eye } from 'lucide-react';
-import { useUser } from '@clerk/nextjs';
-import { Button } from './ui/button';
-import { toast } from 'sonner';
-import PublicEventCard from './PublicEventCard';
+import Navbar from '@/components/Navbar';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EventRow } from '@/lib/types/event';
+import { ArrowRight, Calendar, Clock, Globe, Video } from 'lucide-react';
+import Link from 'next/link';
 
 type PublicProfileProps = {
   userId: string;
@@ -18,64 +15,93 @@ type PublicProfileProps = {
 export default function PublicProfile({
   userId,
   fullName,
-  events = [],
+  events,
 }: PublicProfileProps) {
-  const { user } = useUser();
-
-  const copyProfileUrl = async () => {
-    try {
-      await navigator.clipboard.writeText(
-        `${window.location.origin}/book/${userId}`
-      );
-      toast('Profile URL copied to clipboard!');
-    } catch (error) {
-      console.error('Failed to copy URL:', error);
-    }
-  };
-
   return (
-    <div className="max-w-5xl mx-auto p-5">
-      {user?.id === userId && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4 font-bold">
-          <Eye className="w-4 h-4" />
-          <p>This is how people will see your public profile</p>
-        </div>
-      )}
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="text-center mb-12">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Book a Meeting with {fullName}
+            </h1>
+            <p className="text-xl text-gray-600">
+              Choose the type of meeting that best fits your needs
+            </p>
+          </div>
 
-      <div className="text-4xl md:text-5xl font-black mb-4 text-center">
-        {fullName}
+          {/* Event Types Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-h-[26rem] overflow-y-auto">
+            {events.map(event => (
+              <Link key={event.id} href={`/book/${userId}/${event.id}`}>
+                <Card className="hover:shadow-xl transition-all duration-300 group cursor-pointer border-2 hover:border-primary">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div
+                          className="w-12 h-12 rounded-lg flex items-center justify-center text-white"
+                          style={{ backgroundColor: event.color || '#7C3AED' }}
+                        >
+                          <Video className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-xl group-hover:text-primary transition-colors">
+                            {event.name}
+                          </CardTitle>
+                          <div className="flex items-center space-x-4 mt-2">
+                            <div className="flex items-center text-gray-600">
+                              <Clock className="w-4 h-4 mr-1" />
+                              {event.duration} min
+                            </div>
+                            <div className="flex items-center text-gray-600">
+                              <Video className="w-4 h-4 mr-1" />
+                              {'Video Call'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-primary transition-colors" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600 leading-relaxed">
+                      {event.description}
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+
+          {/* Additional Info */}
+          <div className="mt-12 text-center">
+            <div className="bg-white rounded-lg p-6 shadow-lg max-w-2xl mx-auto">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                What to Expect
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                <div className="flex items-center">
+                  <Calendar className="w-4 h-4 mr-2 text-primary" />
+                  Easy scheduling
+                </div>
+                <div className="flex items-center">
+                  <Video className="w-4 h-4 mr-2 text-primary" />
+                  Video conference link
+                </div>
+                <div className="flex items-center">
+                  <Globe className="w-4 h-4 mr-2 text-primary" />
+                  Automatic time zones
+                </div>
+              </div>
+              <p className="mt-4 text-gray-600">
+                You'll receive a confirmation email with the meeting details and
+                video link once your booking is confirmed.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
-
-      {user?.id === userId && (
-        <div className="flex justify-center mb-6">
-          <Button
-            className="cursor-pointer"
-            variant={'outline'}
-            onClick={copyProfileUrl}
-          >
-            <Copy className="size-4" />
-            Copy Public Profile URL
-          </Button>
-        </div>
-      )}
-
-      <div className="text-muted-foreground mb-6 max-w-sm mx-auto text-center">
-        <p className="font-bold text-2xl">Time to meet!🧑‍🤝‍🧑</p>
-        <br /> Pick an event and let’s make it official by booking a time.
-      </div>
-
-      {events.length === 0 ? (
-        <div className="text-center text-muted-foreground">
-          No events available at the moment.
-        </div>
-      ) : (
-        <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(300px,1fr))]">
-          {events.map(event => (
-            // Render a card for each event
-            <PublicEventCard key={event.id} {...event} />
-          ))}
-        </div>
-      )}
     </div>
   );
 }

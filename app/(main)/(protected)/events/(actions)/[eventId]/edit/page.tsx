@@ -1,7 +1,10 @@
 import EventForm from '@/components/forms/EventForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getEventById } from '@/server/actions/event';
+import { EventFormData } from '@/validations/events';
 import { auth } from '@clerk/nextjs/server';
+import { ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 import invariant from 'tiny-invariant';
 
 export default async function Page({
@@ -21,19 +24,5 @@ export default async function Page({
       notFound: true,
     };
   }
-  return (
-    <Card className="max-w-md mx-auto border-8 border-blue-200 shadow-2xl shadow-accent-foreground">
-      <CardHeader>
-        <CardTitle>Edit Event</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <EventForm
-          event={{
-            ...event,
-            isActive: event.isActive ?? false,
-          }}
-        />
-      </CardContent>
-    </Card>
-  );
+  return <EventForm event={event as EventFormData} />;
 }

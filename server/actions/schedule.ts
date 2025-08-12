@@ -15,13 +15,19 @@ import {
   isWithinInterval,
   setHours,
   setMinutes,
+  subMinutes,
 } from 'date-fns';
 import { DAYS_OF_WEEK_MAP, DAYS_OF_WEEK } from '@/constants';
 const db = getDbInstance();
 
 export const getAvailableTimeSlots = async (
   allTimesSlot: Date[],
-  { clerkUserId: userId, duration }: Partial<EventRow>
+  {
+    clerkUserId: userId,
+    duration,
+    bufferAfter,
+    bufferBefore,
+  }: Partial<EventRow>
 ) => {
   if (allTimesSlot.length === 0) return [];
   const start = allTimesSlot[0];
@@ -63,13 +69,15 @@ export const getAvailableTimeSlots = async (
       interval,
       schedule.timezone
     );
-    const eventInterval = {
-      start: interval,
-      end: addMinutes(interval, duration || 30),
+
+    const bufferedInterval = {
+      start: subMinutes(interval, bufferBefore || 0),
+      end: addMinutes(interval, bufferAfter || 0),
     };
+
     const isAvailableForEvent = existingEventsTimeSlots.every(slot => {
       if (!slot?.start || !slot?.end) return true;
-      return !areIntervalsOverlapping(slot, eventInterval);
+      return !areIntervalsOverlapping(slot, bufferedInterval);
     });
 
     if (!isAvailableForEvent) return false;
@@ -77,11 +85,11 @@ export const getAvailableTimeSlots = async (
 
     return dayAvailabilites.some(
       (availability: { start: Date; end: Date }) =>
-        isWithinInterval(eventInterval.start, {
+        isWithinInterval(bufferedInterval.start, {
           start: availability.start,
           end: availability.end,
         }) &&
-        isWithinInterval(eventInterval.end, {
+        isWithinInterval(bufferedInterval.end, {
           start: availability.start,
           end: availability.end,
         })

@@ -1,6 +1,7 @@
 import { calendar_v3, google } from 'googleapis';
 import { clerkClient } from '@clerk/nextjs/server';
 import { GoogleAccountManager } from './google-account';
+import { deleteEvent } from '../actions/event';
 
 export interface CalendarEvent {
   id?: string;
@@ -73,5 +74,19 @@ export class GoogleCalendarService {
       sendUpdates: 'all',
     });
     return response.data;
+  }
+
+  public async deleteEvent({
+    userId,
+    eventId,
+  }: {
+    userId: string;
+    eventId: string;
+  }): Promise<void> {
+    const calendar = await this.getCalendarClient(userId);
+    await calendar.events.delete({
+      calendarId: 'primary',
+      eventId,
+    });
   }
 }
